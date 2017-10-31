@@ -1,16 +1,132 @@
-<h1>Hello, world!</h1>
-<p>Welcome to your new single-page application, built with:</p>
-<ul>
-    <li><a href='https://get.asp.net/'>ASP.NET Core</a> and <a href='https://msdn.microsoft.com/en-us/library/67ef8sbd.aspx'>C#</a> for cross-platform server-side code</li>
-    <li><a href='https://angular.io/'>Angular</a> and <a href='http://www.typescriptlang.org/'>TypeScript</a> for client-side code</li>
-    <li><a href='https://webpack.github.io/'>Webpack</a> for building and bundling client-side resources</li>
-    <li><a href='http://getbootstrap.com/'>Bootstrap</a> for layout and styling</li>
-</ul>
-<p>To help you get started, we've also set up:</p>
-<ul>
-    <li><strong>Client-side navigation</strong>. For example, click <em>Counter</em> then <em>Back</em> to return here.</li>
-    <li><strong>Server-side prerendering</strong>. For faster initial loading and improved SEO, your Angular app is prerendered on the server. The resulting HTML is then transferred to the browser where a client-side copy of the app takes over.</li>
-    <li><strong>Webpack dev middleware</strong>. In development mode, there's no need to run the <code>webpack</code> build tool. Your client-side resources are dynamically built on demand. Updates are available as soon as you modify any file.</li>
-    <li><strong>Hot module replacement</strong>. In development mode, you don't even need to reload the page after making most changes. Within seconds of saving changes to files, your Angular app will be rebuilt and a new instance injected is into the page.</li>
-    <li><strong>Efficient production builds</strong>. In production mode, development-time features are disabled, and the <code>webpack</code> build tool produces minified static CSS and JavaScript files.</li>
-</ul>
+<h1>
+    <img src="/images/tcbr.png" style="height: 50px;" />
+    TCBR Serve Team Schedule
+    <small>
+        <button class="btn btn-link" type="button" [hidden]="loadingSchedule" (click)="refreshSchedule()">
+            <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>
+            Refresh
+        </button>
+        <span [hidden]="!loadingSchedule">
+            Loading...
+        </span>
+    </small>
+</h1>
+<div class="form-group">
+    <input type="text" class="form-control" placeholder="Filter by name..." [(ngModel)]="filterName" />
+</div>
+<div class="panel panel-default">
+    <div class="panel-body">
+        <div>
+            <strong>Key:</strong>
+            <span class="label label-default" style="margin-left: 5px;">
+                Has Not Responded
+            </span>
+            <span class="label label-success" style="margin-left: 5px;">
+                Accepted
+            </span>
+            <span class="label label-danger" style="margin-left: 5px;">
+                Declined
+            </span>
+            <span class="label" style="color: #000; margin-left: 5px;">
+                <span class="glyphicon glyphicon-envelope" aria-hidden="true"></span>
+                Need to Send Request
+            </span>
+        </div>
+        <table class="table table-striped table-hover table-schedule" *ngIf="schedule != null">
+            <thead>
+                <tr>
+                    <th>Serve Area</th>
+                    <th>Team</th>
+                    <th>Position</th>
+                    <th *ngFor="let date of schedule.scheduleDates">{{getDisplayDate(date)}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <ng-container *ngFor="let serviceType of getServiceTypes()">
+                    <tr class="servicetype">
+                        <td [attr.rowspan]="getServiceTypeRowSpan(serviceType.key)"
+                            class="servicetype"
+                            [ngStyle]="getCellStyle(serviceType.key)">
+                            {{serviceType.value}}
+                        </td>
+                        <td [attr.rowspan]="getTeamRowSpan(schedule.serviceTypeTeams[serviceType.key][0])"
+                            class="team"
+                            [ngStyle]="getCellStyle(serviceType.key, schedule.serviceTypeTeams[serviceType.key][0])">
+                            {{schedule.teamNames[schedule.serviceTypeTeams[serviceType.key][0]]}}
+                        </td>
+                        <td [ngStyle]="getCellStyle(serviceType.key, schedule.serviceTypeTeams[serviceType.key][0], schedule.teamPositions[schedule.serviceTypeTeams[serviceType.key][0]][0])"
+                            class="position">
+                            {{schedule.teamPositions[schedule.serviceTypeTeams[serviceType.key][0]][0]}}
+                        </td>
+                        <td *ngFor="let date of schedule.scheduleDates"
+                            class="person"
+                            [ngStyle]="getCellStyle(serviceType.key, schedule.serviceTypeTeams[serviceType.key][0], schedule.teamPositions[schedule.serviceTypeTeams[serviceType.key][0]][0])">
+                            <div *ngFor="let person of getPeople(serviceType.key, schedule.serviceTypeTeams[serviceType.key][0], schedule.teamPositions[schedule.serviceTypeTeams[serviceType.key][0]][0], date)">
+                                <span class="label label-default" [ngClass]="getStatusClass(person)">
+                                    <span *ngIf="!person.notificationSent" class="glyphicon glyphicon-envelope" aria-hidden="true"></span>
+                                    {{ person.name }}
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="position" *ngFor="let position of schedule.teamPositions[schedule.serviceTypeTeams[serviceType.key][0]] | slice : 1">
+                        <td [ngStyle]="getCellStyle(serviceType.key, schedule.serviceTypeTeams[serviceType.key][0], position)"
+                            class="position">
+                            {{position}}
+                        </td>
+                        <td *ngFor="let date of schedule.scheduleDates"
+                            class="person"
+                            [ngStyle]="getCellStyle(serviceType.key, schedule.serviceTypeTeams[serviceType.key][0], position)">
+                            <div *ngFor="let person of getPeople(serviceType.key, schedule.serviceTypeTeams[serviceType.key][0], position, date)">
+                                <span class="label label-default" [ngClass]="getStatusClass(person)">
+                                    <span *ngIf="!person.notificationSent" class="glyphicon glyphicon-envelope" aria-hidden="true"></span>
+                                    {{ person.name }}
+                                </span>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <ng-container *ngFor="let teamId of schedule.serviceTypeTeams[serviceType.key] | slice : 1">
+                        <tr class="team">
+                            <td [attr.rowspan]="getTeamRowSpan(teamId)"
+                                class="team"
+                                [ngStyle]="getCellStyle(serviceType.key, teamId)">
+                                {{schedule.teamNames[teamId]}}
+                            </td>
+                            <td [ngStyle]="getCellStyle(serviceType.key, teamId, schedule.teamPositions[teamId][0])"
+                                class="position">
+                                {{schedule.teamPositions[teamId][0]}}
+                            </td>
+                            <td *ngFor="let date of schedule.scheduleDates"
+                                class="person"
+                                [ngStyle]="getCellStyle(serviceType.key, teamId, schedule.teamPositions[teamId][0])">
+                                <div *ngFor="let person of getPeople(serviceType.key, teamId, schedule.teamPositions[teamId][0], date)">
+                                    <span class="label label-default" [ngClass]="getStatusClass(person)">
+                                        <span *ngIf="!person.notificationSent" class="glyphicon glyphicon-envelope" aria-hidden="true"></span>
+                                        {{ person.name }}
+                                    </span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="position" *ngFor="let position of schedule.teamPositions[teamId] | slice : 1">
+                            <td [ngStyle]="getCellStyle(serviceType.key, teamId, position)"
+                                class="position">
+                                {{position}}
+                            </td>
+                            <td *ngFor="let date of schedule.scheduleDates"
+                                class="person"
+                                [ngStyle]="getCellStyle(serviceType.key, teamId, position)">
+                                <div *ngFor="let person of getPeople(serviceType.key, teamId, position, date)">
+                                    <span class="label label-default" [ngClass]="getStatusClass(person)">
+                                        <span *ngIf="!person.notificationSent" class="glyphicon glyphicon-envelope" aria-hidden="true"></span>
+                                        {{ person.name }}
+                                    </span>
+                                </div>
+                            </td>
+                        </tr>
+                    </ng-container>
+                </ng-container>
+            </tbody>
+        </table>
+    </div>
+</div>

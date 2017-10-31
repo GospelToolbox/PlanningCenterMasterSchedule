@@ -7,6 +7,10 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.SpaServices.Webpack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authentication.Google;
+using System.Security.Claims;
 
 namespace PlanningCenterSchedule
 {
@@ -23,6 +27,20 @@ namespace PlanningCenterSchedule
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc();
+
+            services.AddAuthentication(auth =>
+             {
+                 auth.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                 auth.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                 auth.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+
+             })
+             .AddGoogle(googleOptions =>
+             {
+                 googleOptions.ClientId = Configuration["Authentication:Google:ClientId"];
+                 googleOptions.ClientSecret = Configuration["Authentication:Google:ClientSecret"];
+             })
+             .AddCookie();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -42,6 +60,8 @@ namespace PlanningCenterSchedule
             }
 
             app.UseStaticFiles();
+
+            app.UseAuthentication();
 
             app.UseMvc(routes =>
             {

@@ -1,0 +1,43 @@
+﻿.table-schedule th {
+    text-align: center;
+}
+
+.table-schedule td.servicetype {
+    vertical-align: middle;
+    font-size: 1.2em;
+    text-align: center;
+    font-weight: bold;
+}
+
+.table-schedule td.team {
+    font-size: 1.1em;
+    vertical-align: middle;
+    text-align: center;
+    font-weight: bold;
+}
+
+.table-schedule td.position {
+    font-size: 1em;
+    vertical-align: middle;
+    text-align: center;
+    font-weight: bold;
+}
+
+.table-schedule td.person {
+    border-left: 2px solid #000;
+    font-size: 1em;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.table-schedule tr.servicetype {
+    border-top: solid #000 3px;
+}
+
+.table-schedule tr.team {
+    border-top: solid #000 2px;
+}
+
+[hidden] {
+    display: none !important;
+}
