@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="~/dist/vendor.css" asp-append-version="true" />
     <style>
         body {
-            background-color: #eeeeee;  
+            background-color: #eeeeee;
         }
     </style>
 </head>
@@ -17,5 +17,13 @@
     @RenderBody()
 
     @RenderSection("scripts", required: false)
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-61746652-2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-61746652-2');
+    </script>
 </body>
 </html>

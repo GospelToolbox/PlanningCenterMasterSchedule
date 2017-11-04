@@ -138,6 +138,6 @@ export class HomeComponent {
 
         let people: string[] = this.schedule.records[serviceTypeId][teamId][position][date] || [];
 
-        return people.filter(name => this.filterName == null || name.toLowerCase().indexOf(this.filterName.toLowerCase()) > -1);
+        return people.filter((person:any) => this.filterName == null || person.name.toLowerCase().indexOf(this.filterName.toLowerCase()) > -1);
     }
 }
