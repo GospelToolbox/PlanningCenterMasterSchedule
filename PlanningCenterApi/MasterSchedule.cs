@@ -4,7 +4,7 @@ using System.Text;
 
 namespace PlanningCenterApi
 {
-    public class Schedule
+    public class MasterSchedule
     {
         /// <summary>
         /// Mapping of service type Id to Name

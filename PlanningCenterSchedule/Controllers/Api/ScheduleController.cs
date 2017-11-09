@@ -29,10 +29,10 @@ namespace PlanningCenterSchedule.Controllers
 
 
         [HttpGet("[action]")]
-        public Schedule GetSchedule()
+        public MasterSchedule GetSchedule()
         {
             var dataJson = System.IO.File.ReadAllText("./Data/data.json");
-            return JsonConvert.DeserializeObject<Schedule>(dataJson);
+            return JsonConvert.DeserializeObject<MasterSchedule>(dataJson);
         }
 
         [HttpPost("[action]")]
@@ -40,76 +40,64 @@ namespace PlanningCenterSchedule.Controllers
         {
             lock (sync)
             {
-                var client = new RestClient("https://api.planningcenteronline.com");
-                client.Authenticator = new HttpBasicAuthenticator(
-                    Configuration["PlanningCenter:ClientId"],
-                    Configuration["PlanningCenter:ClientSecret"]);
 
-                var request = new RestRequest("services/v2/service_types", Method.GET);
+                var pco = new PlanningCenter(Configuration["PlanningCenter:ClientId"], Configuration["PlanningCenter:ClientSecret"]);
 
-                var response = client.Execute<ApiResponse<List<GenericData>>>(request);
+                var serviceTypes = pco.Services.ServiceTypes().List();
 
-                var schedule = new Schedule();
+                var schedule = new MasterSchedule();
 
-                foreach (var serviceType in response.Data.Data)
+                foreach (var serviceType in serviceTypes)
                 {
-                    var plansRequest = new RestRequest($"services/v2/service_types/{serviceType.Id}/plans");
-                    plansRequest.AddQueryParameter("filter", "future");
+                    var plans = pco.Services.ServiceTypes().Plans(serviceType.Id).List(future: true);
 
-                    var plansResponse = client.Execute<ApiResponse<List<GenericData>>>(plansRequest);
-
-                    schedule.ServiceTypes[serviceType.Id] = serviceType.Attributes["name"] as string;
+                    schedule.ServiceTypes[serviceType.Id] = serviceType.Name;
                     schedule.ServiceTypeTeams[serviceType.Id] = new HashSet<string>();
                     schedule.Records[serviceType.Id] = new Dictionary<string, Dictionary<string, Dictionary<string, HashSet<ScheduledPosition>>>>();
 
-                    foreach (var plan in plansResponse.Data.Data)
+                    foreach (var plan in plans)
                     {
-                        var planDate = DateTimeOffset.Parse(plan.Attributes["last_time_at"] as string);
-                        var planDateString = planDate.ToString("yyyy-MM-dd");
+                        var planDateString = plan.LastTimeAt?.ToString("yyyy-MM-dd");
                         schedule.ScheduleDates.Add(planDateString);
 
-                        var peopleRequest = new RestRequest($"/services/v2/service_types/{serviceType.Id}/plans/{plan.Id}/team_members", Method.GET);
-                        peopleRequest.AddQueryParameter("include", "team,person");
+                        var planPeople = pco.Services.ServiceTypes().Plans(serviceType.Id).TeamMembers(plan.Id).List(includes: new[] { "team", "person" });
 
-                        var peopleResponse = client.Execute<ApiResponse<List<GenericData>>>(peopleRequest);
-
-                        var teams = peopleResponse.Data.Included.Where(d => d.Type == "Team").ToDictionary(d => d.Id, d => d.Attributes["name"] as string);
-
-                        foreach (var planPerson in peopleResponse.Data.Data)
+                        foreach (var planPerson in planPeople)
                         {
-                            var teamId = planPerson.Relationships["team"]["data"]["id"] as string;
-                            if (!schedule.Records[serviceType.Id].ContainsKey(teamId))
+                            var team = planPerson.Team;
+
+                            if (!schedule.Records[serviceType.Id].ContainsKey(team.Id))
                             {
-                                schedule.Records[serviceType.Id][teamId] = new Dictionary<string, Dictionary<string, HashSet<ScheduledPosition>>>();
+                                schedule.Records[serviceType.Id][team.Id] = new Dictionary<string, Dictionary<string, HashSet<ScheduledPosition>>>();
                             }
 
-                            schedule.TeamNames[teamId] = teams[teamId];
-                            schedule.ServiceTypeTeams[serviceType.Id].Add(teamId);
+                            schedule.TeamNames[team.Id] = team.Name;
+                            schedule.ServiceTypeTeams[serviceType.Id].Add(team.Id);
 
-                            if (!schedule.TeamPositions.ContainsKey(teamId))
+                            if (!schedule.TeamPositions.ContainsKey(team.Id))
                             {
-                                schedule.TeamPositions[teamId] = new HashSet<string>();
+                                schedule.TeamPositions[team.Id] = new HashSet<string>();
                             }
 
-                            var position = planPerson.Attributes["team_position_name"] as string ?? "(other)";
+                            var position = planPerson.TeamPositionName ?? "(other)";
 
-                            if (!schedule.Records[serviceType.Id][teamId].ContainsKey(position))
+                            if (!schedule.Records[serviceType.Id][team.Id].ContainsKey(position))
                             {
-                                schedule.Records[serviceType.Id][teamId][position] = new Dictionary<string, HashSet<ScheduledPosition>>();
+                                schedule.Records[serviceType.Id][team.Id][position] = new Dictionary<string, HashSet<ScheduledPosition>>();
                             }
 
-                            schedule.TeamPositions[teamId].Add(position);
+                            schedule.TeamPositions[team.Id].Add(position);
 
-                            if (!schedule.Records[serviceType.Id][teamId][position].ContainsKey(planDateString))
+                            if (!schedule.Records[serviceType.Id][team.Id][position].ContainsKey(planDateString))
                             {
-                                schedule.Records[serviceType.Id][teamId][position][planDateString] = new HashSet<ScheduledPosition>();
+                                schedule.Records[serviceType.Id][team.Id][position][planDateString] = new HashSet<ScheduledPosition>();
                             }
 
-                            schedule.Records[serviceType.Id][teamId][position][planDateString].Add(new ScheduledPosition
+                            schedule.Records[serviceType.Id][team.Id][position][planDateString].Add(new ScheduledPosition
                             {
-                                Name = planPerson.Attributes["name"] as string,
-                                Status = planPerson.Attributes["status"] as string,
-                                NotificationSent = planPerson.Attributes["notification_sent_at"] != null
+                                Name = planPerson.Name,
+                                Status = planPerson.Status,
+                                NotificationSent = planPerson.NotificationSentAt.HasValue
                             });
                         }
                     }
